@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface-2: #1c1c1c;
+  --surface-3: #252525;
+  --border: #2a2a2a;
+  --text: #f0f0f0;
+  --text-2: #a0a0a0;
+  --text-3: #666666;
+  --accent: #d4a44a;
+  --accent-dim: #d4a44a22;
+  --success: #34d399;
+  --success-dim: #34d39922;
+  --danger: #f87171;
+  --danger-dim: #f8717122;
+  --tcs: #6366f1;
+  --projects: #f59e0b;
+  --ace: #10b981;
+  --personal: #ec4899;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.page-enter { opacity: 0; transform: translateY(8px); }
+.page-active { opacity: 1; transform: translateY(0); transition: all 0.3s ease; }
+
+.habit-toggle {
+  width: 52px;
+  height: 30px;
+  border-radius: 15px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+}
+.habit-toggle.checked {
+  background: var(--success-dim);
+  border-color: var(--success);
+}
+.habit-toggle::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--text-3);
+  top: 3px;
+  left: 3px;
+  transition: all 0.3s ease;
+}
+.habit-toggle.checked::after {
+  transform: translateX(22px);
+  background: var(--success);
+}
+
+.progress-ring-bg { stroke: var(--surface-3); }
+.progress-ring-fill { 
+  stroke: var(--accent); 
+  transition: stroke-dashoffset 0.6s ease;
+  stroke-linecap: round;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 3px solid var(--bg);
+}
+
+textarea {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  padding: 12px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  resize: none;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+textarea:focus { border-color: var(--accent); }
+textarea::placeholder { color: var(--text-3); }
+
+.nav-item { position: relative; }
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* Safe area for iPhones with notch/dynamic island */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Touch improvements for mobile */
+@media (hover: none) {
+  button, a { -webkit-tap-highlight-color: transparent; }
+}
+
+/* Prevent text selection on interactive elements */
+button, .nav-item { -webkit-user-select: none; user-select: none; }
