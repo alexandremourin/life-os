@@ -83,118 +83,129 @@ export default function Dashboard({ store }) {
         <h1 className="text-2xl font-semibold mt-1">{greeting}</h1>
       </div>
 
-      {/* Progress ring */}
-      <div
-        className="rounded-2xl p-6 flex items-center gap-6"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-      >
-        <ProgressRing percentage={completion} />
-        <div className="flex-1">
-          <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>
-            Today's habits
-          </p>
-          <p className="text-3xl font-bold font-mono mt-1" style={{ color: 'var(--text)' }}>
-            {Object.values(store.getTodayHabits()).filter(Boolean).length}
-            <span className="text-lg" style={{ color: 'var(--text-3)' }}>
-              /{store.habits.length}
-            </span>
-          </p>
-          <p className="text-xs mt-2" style={{ color: completion === 100 ? 'var(--success)' : 'var(--text-3)' }}>
-            {completion === 100 ? 'Perfect day!' : `${100 - completion}% remaining`}
-          </p>
-        </div>
-      </div>
+      {/* Desktop: 2-col grid / Mobile: stacked */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard
-          icon={Flame}
-          label="Smoke streak"
-          value={`${store.smokeStreak}d`}
-          color="var(--danger)"
-          sub="days without smoking"
-        />
-        <StatCard
-          icon={ListChecks}
-          label="Pending tasks"
-          value={pendingTodos}
-          color="var(--tcs)"
-          sub="across all categories"
-        />
-        <StatCard
-          icon={Star}
-          label="Day score"
-          value={`${todayJournal.score}/10`}
-          color="var(--accent)"
-          sub="your rating today"
-        />
-        <StatCard
-          icon={TrendingUp}
-          label="Avg score"
-          value={
-            history.filter((d) => d.journal).length > 0
-              ? (
-                  history
-                    .filter((d) => d.journal)
-                    .reduce((a, d) => a + d.journal.score, 0) /
-                  history.filter((d) => d.journal).length
-                ).toFixed(1)
-              : '—'
-          }
-          color="var(--success)"
-          sub="last 7 days"
-        />
-      </div>
-
-      {/* Week overview */}
-      <div
-        className="rounded-2xl p-5"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-      >
-        <p className="text-sm font-medium mb-4" style={{ color: 'var(--text-2)' }}>
-          This week
-        </p>
-        <div className="flex justify-between">
-          {history.map((day) => {
-            const pct = day.habitsTotal > 0 ? (day.habitsCompleted / day.habitsTotal) * 100 : 0
-            const isToday = day.date === store.today
-            return (
-              <div key={day.date} className="flex flex-col items-center gap-2">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono font-medium"
-                  style={{
-                    background: pct === 100 ? 'var(--success-dim)' : pct > 0 ? 'var(--accent-dim)' : 'var(--surface-3)',
-                    color: pct === 100 ? 'var(--success)' : pct > 0 ? 'var(--accent)' : 'var(--text-3)',
-                    border: isToday ? '1.5px solid var(--accent)' : '1px solid transparent',
-                  }}
-                >
-                  {day.habitsCompleted}
-                </div>
-                <span
-                  className="text-[10px] font-medium"
-                  style={{ color: isToday ? 'var(--accent)' : 'var(--text-3)' }}
-                >
-                  {day.shortDate}
+        {/* Left column */}
+        <div className="space-y-6">
+          {/* Progress ring */}
+          <div
+            className="rounded-2xl p-6 flex items-center gap-6"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <ProgressRing percentage={completion} />
+            <div className="flex-1">
+              <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>
+                Today's habits
+              </p>
+              <p className="text-3xl font-bold font-mono mt-1" style={{ color: 'var(--text)' }}>
+                {Object.values(store.getTodayHabits()).filter(Boolean).length}
+                <span className="text-lg" style={{ color: 'var(--text-3)' }}>
+                  /{store.habits.length}
                 </span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
+              </p>
+              <p className="text-xs mt-2" style={{ color: completion === 100 ? 'var(--success)' : 'var(--text-3)' }}>
+                {completion === 100 ? 'Perfect day!' : `${100 - completion}% remaining`}
+              </p>
+            </div>
+          </div>
 
-      {/* Export button */}
-      <button
-        onClick={() => store.exportToExcel()}
-        className="w-full py-3.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98]"
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          color: 'var(--text-2)',
-        }}
-      >
-        <Download size={16} />
-        Export to Excel
-      </button>
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              icon={Flame}
+              label="Smoke streak"
+              value={`${store.smokeStreak}d`}
+              color="var(--danger)"
+              sub="days without smoking"
+            />
+            <StatCard
+              icon={ListChecks}
+              label="Pending tasks"
+              value={pendingTodos}
+              color="var(--tcs)"
+              sub="across all categories"
+            />
+            <StatCard
+              icon={Star}
+              label="Day score"
+              value={`${todayJournal.score}/10`}
+              color="var(--accent)"
+              sub="your rating today"
+            />
+            <StatCard
+              icon={TrendingUp}
+              label="Avg score"
+              value={
+                history.filter((d) => d.journal).length > 0
+                  ? (
+                      history
+                        .filter((d) => d.journal)
+                        .reduce((a, d) => a + d.journal.score, 0) /
+                      history.filter((d) => d.journal).length
+                    ).toFixed(1)
+                  : '—'
+              }
+              color="var(--success)"
+              sub="last 7 days"
+            />
+          </div>
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* Week overview */}
+          <div
+            className="rounded-2xl p-5"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <p className="text-sm font-medium mb-4" style={{ color: 'var(--text-2)' }}>
+              This week
+            </p>
+            <div className="flex justify-between">
+              {history.map((day) => {
+                const pct = day.habitsTotal > 0 ? (day.habitsCompleted / day.habitsTotal) * 100 : 0
+                const isToday = day.date === store.today
+                return (
+                  <div key={day.date} className="flex flex-col items-center gap-2">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-mono font-medium"
+                      style={{
+                        background: pct === 100 ? 'var(--success-dim)' : pct > 0 ? 'var(--accent-dim)' : 'var(--surface-3)',
+                        color: pct === 100 ? 'var(--success)' : pct > 0 ? 'var(--accent)' : 'var(--text-3)',
+                        border: isToday ? '1.5px solid var(--accent)' : '1px solid transparent',
+                      }}
+                    >
+                      {day.habitsCompleted}
+                    </div>
+                    <span
+                      className="text-[10px] font-medium"
+                      style={{ color: isToday ? 'var(--accent)' : 'var(--text-3)' }}
+                    >
+                      {day.shortDate}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Export button */}
+          <button
+            onClick={() => store.exportToExcel()}
+            className="w-full py-3.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98]"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-2)',
+            }}
+          >
+            <Download size={16} />
+            Export to Excel
+          </button>
+        </div>
+
+      </div>
     </div>
   )
 }

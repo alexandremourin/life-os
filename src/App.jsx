@@ -33,7 +33,7 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ background: 'var(--bg)' }}>
       {/* Main content */}
-      <main className="flex-1 pb-20 px-4 pt-5 md:px-6 md:pt-8 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full">
+      <main className="flex-1 pb-20 px-4 pt-5 md:px-8 md:pt-10 max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto w-full">
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard store={store} />} />
