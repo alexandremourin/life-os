@@ -238,6 +238,42 @@ export function useStore() {
     return days
   }
 
+  // Historique complet 30 jours pour graphe + journal
+  const getFullHistory = useCallback((days = 30) => {
+    const result = []
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const key = d.toISOString().split('T')[0]
+      const habitsForDay = habitsData[key] || {}
+      const habitsCompleted = Object.values(habitsForDay).filter(Boolean).length
+      result.push({
+        date: key,
+        label: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+        shortLabel: d.toLocaleDateString('en', { weekday: 'short' }),
+        isToday: key === today,
+        journal: journal[key] || null,
+        score: journal[key]?.score ?? null,
+        habitsCompleted,
+        habitsPct: Math.round((habitsCompleted / DEFAULT_HABITS.length) * 100),
+        habitsTotal: DEFAULT_HABITS.length,
+      })
+    }
+    return result
+  }, [habitsData, journal, today])
+
+  // Tous les jours du journal (pas seulement 30j)
+  const getAllJournalEntries = useCallback(() => {
+    return Object.entries(journal)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, entry]) => ({
+        date,
+        label: new Date(date + 'T12:00:00').toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' }),
+        shortLabel: new Date(date + 'T12:00:00').toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }),
+        ...entry,
+      }))
+  }, [journal])
+
   const getPendingTodos = () =>
     Object.values(todos).reduce((acc, cat) => acc + cat.filter((t) => !t.done).length, 0)
 
@@ -281,5 +317,6 @@ export function useStore() {
     addTodo, toggleTodo, deleteTodo,
     saveJournal, getTodayJournal, getJournalHistory,
     getPendingTodos, exportToExcel,
+    getFullHistory, getAllJournalEntries,
   }
 }

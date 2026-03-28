@@ -1,10 +1,12 @@
 import { Flame, TrendingUp, ListChecks, Star, Download } from 'lucide-react'
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid
+} from 'recharts'
 
 function ProgressRing({ percentage, size = 110, strokeWidth = 6 }) {
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (percentage / 100) * circumference
-
   return (
     <svg width={size} height={size} style={{ display: 'block' }}>
       <circle className="progress-ring-bg" cx={size/2} cy={size/2} r={radius} strokeWidth={strokeWidth} fill="none" />
@@ -32,11 +34,29 @@ function StatCard({ icon: Icon, label, value, color, sub }) {
   )
 }
 
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{
+      background: 'var(--surface-2)', borderRadius: 10, padding: '10px 14px',
+      border: '1px solid var(--surface-3)',
+    }}>
+      <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6, fontFamily: 'JetBrains Mono, monospace' }}>{label}</p>
+      {payload.map((p) => (
+        <p key={p.dataKey} style={{ fontSize: 12, fontWeight: 600, color: p.color, fontFamily: 'JetBrains Mono, monospace' }}>
+          {p.name}: {p.value != null ? (p.dataKey === 'score' ? `${p.value}/10` : `${p.value}%`) : '—'}
+        </p>
+      ))}
+    </div>
+  )
+}
+
 export default function Dashboard({ store }) {
   const completion = store.getCompletionRate()
   const todayJournal = store.getTodayJournal()
   const pendingTodos = store.getPendingTodos()
   const history = store.getJournalHistory()
+  const fullHistory = store.getFullHistory(30)
 
   const today = new Date()
   const hour = today.getHours()
@@ -46,26 +66,31 @@ export default function Dashboard({ store }) {
     ? (history.filter(d => d.journal).reduce((a, d) => a + d.journal.score, 0) / history.filter(d => d.journal).length).toFixed(1)
     : '—'
 
+  // Prépare les données du graphe (garder seulement les jours avec des données)
+  const chartData = fullHistory.map(d => ({
+    label: d.label,
+    score: d.score,
+    habits: d.habitsCompleted > 0 ? d.habitsPct : null,
+  }))
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
       {/* Header */}
       <div>
-        <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           {today.toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
-        <h1 style={{ fontSize: 26, fontWeight: 600, color: 'var(--text)' }}>{greeting}</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 600 }}>{greeting}</h1>
       </div>
 
-      {/* 2-col on desktop, stacked on mobile */}
+      {/* 2-col on desktop */}
       <div className="dashboard-grid">
-
         {/* Left */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Progress */}
           <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, display: 'flex', alignItems: 'center', gap: 24 }}>
             <ProgressRing percentage={completion} />
             <div>
-              <p style={{ fontSize: 12, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Today's habits</p>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Today's habits</p>
               <p style={{ fontSize: 32, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>
                 {Object.values(store.getTodayHabits()).filter(Boolean).length}
                 <span style={{ fontSize: 18, color: 'var(--text-3)' }}>/{store.habits.length}</span>
@@ -76,7 +101,6 @@ export default function Dashboard({ store }) {
             </div>
           </div>
 
-          {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <StatCard icon={Flame} label="Streak" value={`${store.smokeStreak}d`} color="var(--danger)" sub="smoke-free" />
             <StatCard icon={ListChecks} label="Tasks" value={pendingTodos} color="var(--tcs)" sub="pending" />
@@ -87,8 +111,8 @@ export default function Dashboard({ store }) {
 
         {/* Right */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Week */}
-          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, flex: 1 }}>
+          {/* Week overview */}
+          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24 }}>
             <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 20 }}>This week</p>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               {history.map((day) => {
@@ -119,10 +143,9 @@ export default function Dashboard({ store }) {
           <button
             onClick={() => store.exportToExcel()}
             style={{
-              width: '100%', padding: '14px 0', borderRadius: 12,
-              background: 'var(--surface)', border: 'none', cursor: 'pointer',
+              width: '100%', padding: '13px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
+              background: 'var(--surface)', fontSize: 13, fontWeight: 500, color: 'var(--text-3)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              fontSize: 13, fontWeight: 500, color: 'var(--text-3)',
               transition: 'background 0.2s',
             }}
             onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
@@ -132,7 +155,55 @@ export default function Dashboard({ store }) {
             Export to Excel
           </button>
         </div>
+      </div>
 
+      {/* Graphe 30 jours */}
+      <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24 }}>
+        <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+          30-day trends
+        </p>
+        <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 20, height: 2, borderRadius: 1, background: 'var(--accent)' }} />
+            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Journal score</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 20, height: 2, borderRadius: 1, background: 'var(--success)' }} />
+            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Habits %</span>
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+            <CartesianGrid stroke="var(--surface-2)" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 10, fill: 'var(--text-3)', fontFamily: 'JetBrains Mono, monospace' }}
+              tickLine={false} axisLine={false}
+              interval={6}
+            />
+            <YAxis
+              tick={{ fontSize: 10, fill: 'var(--text-3)', fontFamily: 'JetBrains Mono, monospace' }}
+              tickLine={false} axisLine={false}
+              domain={[0, 100]}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Line
+              type="monotone" dataKey="score"
+              name="Score" stroke="var(--accent)"
+              strokeWidth={2} dot={false} connectNulls={false}
+              // Normalise score/10 → /100 pour même axe
+              data={chartData.map(d => ({ ...d, score: d.score != null ? d.score * 10 : null }))}
+            />
+            <Line
+              type="monotone" dataKey="habits"
+              name="Habits" stroke="var(--success)"
+              strokeWidth={2} dot={false} connectNulls={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+        <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 8, textAlign: 'center' }}>
+          Score affiché sur 100 (×10) pour comparaison
+        </p>
       </div>
     </div>
   )
