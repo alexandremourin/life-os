@@ -183,7 +183,7 @@ export default function Habits({ store }) {
               </span>
 
               {/* Streak badge */}
-              {streak > 1 && (
+              {streak > 0 && (
                 <span style={{
                   fontSize: 10, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600,
                   padding: '2px 7px', borderRadius: 6,
@@ -257,15 +257,17 @@ export default function Habits({ store }) {
         <button
           onClick={() => setShowHistory(true)}
           style={{
-            width: 46, height: 46, borderRadius: 12, border: 'none',
+            padding: '13px 16px', borderRadius: 12, border: 'none',
             cursor: 'pointer', background: 'var(--surface)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             color: 'var(--text-3)', transition: 'background 0.2s', flexShrink: 0,
+            fontSize: 13, fontWeight: 500,
           }}
           onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
           onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
         >
-          <History size={16} />
+          <History size={15} />
+          History
         </button>
       </div>
     </div>
