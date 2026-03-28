@@ -18,22 +18,27 @@ export default function App() {
 
   if (store.loading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-        <div className="flex flex-col items-center gap-3">
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
           <div
-            className="w-8 h-8 rounded-full border-2 animate-spin"
-            style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }}
+            style={{
+              width: 28, height: 28, borderRadius: '50%',
+              border: '2px solid var(--surface-3)',
+              borderTopColor: 'var(--accent)',
+              animation: 'spin 0.8s linear infinite',
+            }}
           />
-          <span className="text-sm" style={{ color: 'var(--text-3)' }}>Loading...</span>
+          <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Loading...</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-[100dvh] flex flex-col" style={{ background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
       {/* Main content */}
-      <main className="flex-1 pb-20 px-4 pt-5 md:px-16 md:pt-8 w-full">
+      <main style={{ flex: 1, padding: '24px 20px 88px', maxWidth: 900, width: '100%', margin: '0 auto' }}
+            className="md-main">
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard store={store} />} />
@@ -44,35 +49,27 @@ export default function App() {
       </main>
 
       {/* Bottom nav */}
-      <nav
-        className="fixed bottom-0 left-0 right-0 flex justify-around items-center h-16 px-4 safe-bottom"
-        style={{
-          background: 'linear-gradient(to top, var(--bg) 70%, transparent)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-        }}
-      >
+      <nav style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        display: 'flex', justifyContent: 'space-around', alignItems: 'center',
+        height: 64,
+        background: 'rgba(10,10,10,0.85)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderTop: '1px solid var(--surface-2)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}>
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
-            className={({ isActive }) =>
-              `nav-item flex flex-col items-center gap-1 py-2 px-4 transition-all duration-200 ${
-                isActive ? 'active' : ''
-              }`
-            }
+            className={({ isActive }) => `nav-item flex flex-col items-center gap-1 py-2 px-5 transition-all duration-200 ${isActive ? 'active' : ''}`}
           >
             {({ isActive }) => (
               <>
-                <Icon
-                  size={22}
-                  strokeWidth={isActive ? 2.2 : 1.5}
-                  style={{ color: isActive ? 'var(--accent)' : 'var(--text-3)' }}
-                />
-                <span
-                  className="text-[11px] font-medium tracking-wide"
-                  style={{ color: isActive ? 'var(--accent)' : 'var(--text-3)' }}
-                >
+                <Icon size={20} strokeWidth={isActive ? 2 : 1.5}
+                  style={{ color: isActive ? 'var(--accent)' : 'var(--text-3)' }} />
+                <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.05em', color: isActive ? 'var(--accent)' : 'var(--text-3)' }}>
                   {label}
                 </span>
               </>

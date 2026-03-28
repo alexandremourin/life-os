@@ -1,39 +1,18 @@
 import { Flame, TrendingUp, ListChecks, Star, Download } from 'lucide-react'
 
-function ProgressRing({ percentage, size = 120, strokeWidth = 8 }) {
+function ProgressRing({ percentage, size = 110, strokeWidth = 6 }) {
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (percentage / 100) * circumference
 
   return (
-    <svg width={size} height={size} className="block">
-      <circle
-        className="progress-ring-bg"
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        strokeWidth={strokeWidth}
-        fill="none"
-      />
-      <circle
-        className="progress-ring-fill"
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        strokeWidth={strokeWidth}
-        fill="none"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-      />
-      <text
-        x="50%"
-        y="50%"
-        textAnchor="middle"
-        dominantBaseline="central"
-        className="font-mono"
-        style={{ fill: 'var(--accent)', fontSize: '28px', fontWeight: 600 }}
-      >
+    <svg width={size} height={size} style={{ display: 'block' }}>
+      <circle className="progress-ring-bg" cx={size/2} cy={size/2} r={radius} strokeWidth={strokeWidth} fill="none" />
+      <circle className="progress-ring-fill" cx={size/2} cy={size/2} r={radius} strokeWidth={strokeWidth} fill="none"
+        strokeDasharray={circumference} strokeDashoffset={offset}
+        transform={`rotate(-90 ${size/2} ${size/2})`} />
+      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central"
+        style={{ fill: 'var(--accent)', fontSize: 22, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>
         {percentage}%
       </text>
     </svg>
@@ -42,24 +21,13 @@ function ProgressRing({ percentage, size = 120, strokeWidth = 8 }) {
 
 function StatCard({ icon: Icon, label, value, color, sub }) {
   return (
-    <div
-      className="rounded-2xl p-4 flex flex-col gap-2"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-    >
-      <div className="flex items-center gap-2">
-        <Icon size={16} style={{ color }} />
-        <span className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>
-          {label}
-        </span>
+    <div style={{ background: 'var(--surface)', borderRadius: 14, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Icon size={14} style={{ color }} />
+        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
       </div>
-      <span className="text-2xl font-semibold font-mono" style={{ color }}>
-        {value}
-      </span>
-      {sub && (
-        <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
-          {sub}
-        </span>
-      )}
+      <span style={{ fontSize: 26, fontWeight: 600, color, fontFamily: 'JetBrains Mono, monospace' }}>{value}</span>
+      {sub && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{sub}</span>}
     </div>
   )
 }
@@ -71,117 +39,74 @@ export default function Dashboard({ store }) {
   const history = store.getJournalHistory()
 
   const today = new Date()
-  const greeting = today.getHours() < 12 ? 'Good morning' : today.getHours() < 18 ? 'Good afternoon' : 'Good evening'
+  const hour = today.getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+
+  const avgScore = history.filter(d => d.journal).length > 0
+    ? (history.filter(d => d.journal).reduce((a, d) => a + d.journal.score, 0) / history.filter(d => d.journal).length).toFixed(1)
+    : '—'
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
       {/* Header */}
       <div>
-        <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+        <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           {today.toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
-        <h1 className="text-2xl font-semibold mt-1">{greeting}</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 600, color: 'var(--text)' }}>{greeting}</h1>
       </div>
 
-      {/* Desktop: 2-col grid / Mobile: stacked */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* 2-col on desktop, stacked on mobile */}
+      <div className="dashboard-grid">
 
-        {/* Left column */}
-        <div className="space-y-6">
-          {/* Progress ring */}
-          <div
-            className="rounded-2xl p-6 flex items-center gap-6"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-          >
+        {/* Left */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Progress */}
+          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, display: 'flex', alignItems: 'center', gap: 24 }}>
             <ProgressRing percentage={completion} />
-            <div className="flex-1">
-              <p className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>
-                Today's habits
-              </p>
-              <p className="text-3xl font-bold font-mono mt-1" style={{ color: 'var(--text)' }}>
+            <div>
+              <p style={{ fontSize: 12, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Today's habits</p>
+              <p style={{ fontSize: 32, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}>
                 {Object.values(store.getTodayHabits()).filter(Boolean).length}
-                <span className="text-lg" style={{ color: 'var(--text-3)' }}>
-                  /{store.habits.length}
-                </span>
+                <span style={{ fontSize: 18, color: 'var(--text-3)' }}>/{store.habits.length}</span>
               </p>
-              <p className="text-xs mt-2" style={{ color: completion === 100 ? 'var(--success)' : 'var(--text-3)' }}>
-                {completion === 100 ? 'Perfect day!' : `${100 - completion}% remaining`}
+              <p style={{ fontSize: 12, marginTop: 6, color: completion === 100 ? 'var(--success)' : 'var(--text-3)' }}>
+                {completion === 100 ? 'Perfect day' : `${store.habits.length - Object.values(store.getTodayHabits()).filter(Boolean).length} remaining`}
               </p>
             </div>
           </div>
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              icon={Flame}
-              label="Smoke streak"
-              value={`${store.smokeStreak}d`}
-              color="var(--danger)"
-              sub="days without smoking"
-            />
-            <StatCard
-              icon={ListChecks}
-              label="Pending tasks"
-              value={pendingTodos}
-              color="var(--tcs)"
-              sub="across all categories"
-            />
-            <StatCard
-              icon={Star}
-              label="Day score"
-              value={`${todayJournal.score}/10`}
-              color="var(--accent)"
-              sub="your rating today"
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="Avg score"
-              value={
-                history.filter((d) => d.journal).length > 0
-                  ? (
-                      history
-                        .filter((d) => d.journal)
-                        .reduce((a, d) => a + d.journal.score, 0) /
-                      history.filter((d) => d.journal).length
-                    ).toFixed(1)
-                  : '—'
-              }
-              color="var(--success)"
-              sub="last 7 days"
-            />
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <StatCard icon={Flame} label="Streak" value={`${store.smokeStreak}d`} color="var(--danger)" sub="smoke-free" />
+            <StatCard icon={ListChecks} label="Tasks" value={pendingTodos} color="var(--tcs)" sub="pending" />
+            <StatCard icon={Star} label="Today" value={`${todayJournal.score}/10`} color="var(--accent)" sub="day score" />
+            <StatCard icon={TrendingUp} label="Average" value={avgScore} color="var(--success)" sub="last 7 days" />
           </div>
         </div>
 
-        {/* Right column */}
-        <div className="space-y-6">
-          {/* Week overview */}
-          <div
-            className="rounded-2xl p-5"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-          >
-            <p className="text-sm font-medium mb-4" style={{ color: 'var(--text-2)' }}>
-              This week
-            </p>
-            <div className="flex justify-between">
+        {/* Right */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Week */}
+          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 24, flex: 1 }}>
+            <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 20 }}>This week</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               {history.map((day) => {
                 const pct = day.habitsTotal > 0 ? (day.habitsCompleted / day.habitsTotal) * 100 : 0
                 const isToday = day.date === store.today
                 return (
-                  <div key={day.date} className="flex flex-col items-center gap-2">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-mono font-medium"
-                      style={{
-                        background: pct === 100 ? 'var(--success-dim)' : pct > 0 ? 'var(--accent-dim)' : 'var(--surface-3)',
-                        color: pct === 100 ? 'var(--success)' : pct > 0 ? 'var(--accent)' : 'var(--text-3)',
-                        border: isToday ? '1.5px solid var(--accent)' : '1px solid transparent',
-                      }}
-                    >
+                  <div key={day.date} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 38, height: 38, borderRadius: 10,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600,
+                      background: pct === 100 ? 'var(--success-dim)' : pct > 0 ? 'var(--accent-dim)' : 'var(--surface-2)',
+                      color: pct === 100 ? 'var(--success)' : pct > 0 ? 'var(--accent)' : 'var(--text-3)',
+                      outline: isToday ? '1.5px solid var(--accent)' : 'none',
+                    }}>
                       {day.habitsCompleted}
                     </div>
-                    <span
-                      className="text-[10px] font-medium"
-                      style={{ color: isToday ? 'var(--accent)' : 'var(--text-3)' }}
-                    >
+                    <span style={{ fontSize: 10, color: isToday ? 'var(--accent)' : 'var(--text-3)', fontWeight: 500 }}>
                       {day.shortDate}
                     </span>
                   </div>
@@ -190,17 +115,20 @@ export default function Dashboard({ store }) {
             </div>
           </div>
 
-          {/* Export button */}
+          {/* Export */}
           <button
             onClick={() => store.exportToExcel()}
-            className="w-full py-3.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98]"
             style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-2)',
+              width: '100%', padding: '14px 0', borderRadius: 12,
+              background: 'var(--surface)', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              fontSize: 13, fontWeight: 500, color: 'var(--text-3)',
+              transition: 'background 0.2s',
             }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
           >
-            <Download size={16} />
+            <Download size={15} />
             Export to Excel
           </button>
         </div>
