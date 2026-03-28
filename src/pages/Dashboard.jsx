@@ -1,4 +1,4 @@
-import { Flame, TrendingUp, ListChecks, Star, Download } from 'lucide-react'
+import { Flame, TrendingUp, ListChecks, Star, Download, Zap } from 'lucide-react'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid
 } from 'recharts'
@@ -44,12 +44,14 @@ const CustomTooltip = ({ active, payload, label }) => {
       <p style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6, fontFamily: 'JetBrains Mono, monospace' }}>{label}</p>
       {payload.map((p) => (
         <p key={p.dataKey} style={{ fontSize: 12, fontWeight: 600, color: p.color, fontFamily: 'JetBrains Mono, monospace' }}>
-          {p.name}: {p.value != null ? (p.dataKey === 'score' ? `${p.value}/10` : `${p.value}%`) : '—'}
+          {p.name}: {p.value != null ? (p.dataKey === 'score' ? `${(p.value / 10).toFixed(1)}/5` : `${p.value}%`) : '—'}
         </p>
       ))}
     </div>
   )
 }
+
+const LEVEL_NAMES = ['Beginner', 'Apprentice', 'Committed', 'Advanced', 'Master']
 
 export default function Dashboard({ store }) {
   const completion = store.getCompletionRate()
@@ -62,16 +64,27 @@ export default function Dashboard({ store }) {
   const hour = today.getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
+  // Normalize score /10 → /5
+  const normalizeScore = (s) => s > 5 ? Math.round(s / 2) : s
+  const displayScore = normalizeScore(todayJournal.score)
+
   const avgScore = history.filter(d => d.journal).length > 0
-    ? (history.filter(d => d.journal).reduce((a, d) => a + d.journal.score, 0) / history.filter(d => d.journal).length).toFixed(1)
+    ? (history.filter(d => d.journal).reduce((a, d) => a + normalizeScore(d.journal.score), 0) / history.filter(d => d.journal).length).toFixed(1)
     : '—'
 
-  // Prépare les données du graphe (garder seulement les jours avec des données)
+  // Chart data
   const chartData = fullHistory.map(d => ({
     label: d.label,
-    score: d.score,
+    score: d.score != null ? normalizeScore(d.score) * 10 : null, // ×10 for same axis as habits%
     habits: d.habitsCompleted > 0 ? d.habitsPct : null,
   }))
+
+  // XP / Level
+  const xp = store.getTotalXP ? store.getTotalXP() : 0
+  const levelInfo = store.getLevelInfo ? store.getLevelInfo() : { level: 1, name: 'Beginner', xp, xpForNext: 100, progress: 0 }
+
+  // Weekly Review
+  const weeklyReview = store.getWeeklyReview ? store.getWeeklyReview() : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -81,6 +94,30 @@ export default function Dashboard({ store }) {
           {today.toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
         <h1 style={{ fontSize: 26, fontWeight: 600 }}>{greeting}</h1>
+      </div>
+
+      {/* XP bar */}
+      <div style={{ background: 'var(--surface)', borderRadius: 14, padding: '14px 18px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Zap size={14} style={{ color: 'var(--accent)' }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>Level {levelInfo.level} — {levelInfo.name}</span>
+          </div>
+          <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-3)' }}>
+            {levelInfo.xp} / {levelInfo.max ?? '∞'} XP
+          </span>
+        </div>
+        <div style={{ height: 5, borderRadius: 3, background: 'var(--surface-3)', overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: 3,
+            width: `${levelInfo.pct}%`,
+            background: 'var(--accent)',
+            transition: 'width 0.6s ease',
+          }} />
+        </div>
+        <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>
+          +10 XP per habit · +50 XP for a perfect day
+        </p>
       </div>
 
       {/* 2-col on desktop */}
@@ -96,7 +133,7 @@ export default function Dashboard({ store }) {
                 <span style={{ fontSize: 18, color: 'var(--text-3)' }}>/{store.habits.length}</span>
               </p>
               <p style={{ fontSize: 12, marginTop: 6, color: completion === 100 ? 'var(--success)' : 'var(--text-3)' }}>
-                {completion === 100 ? 'Perfect day' : `${store.habits.length - Object.values(store.getTodayHabits()).filter(Boolean).length} remaining`}
+                {completion === 100 ? 'Perfect day ✦' : `${store.habits.length - Object.values(store.getTodayHabits()).filter(Boolean).length} remaining`}
               </p>
             </div>
           </div>
@@ -104,8 +141,8 @@ export default function Dashboard({ store }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <StatCard icon={Flame} label="Streak" value={`${store.smokeStreak}d`} color="var(--danger)" sub="smoke-free" />
             <StatCard icon={ListChecks} label="Tasks" value={pendingTodos} color="var(--tcs)" sub="pending" />
-            <StatCard icon={Star} label="Today" value={`${todayJournal.score}/10`} color="var(--accent)" sub="day score" />
-            <StatCard icon={TrendingUp} label="Average" value={avgScore} color="var(--success)" sub="last 7 days" />
+            <StatCard icon={Star} label="Today" value={`${displayScore}/5`} color="var(--accent)" sub="day score" />
+            <StatCard icon={TrendingUp} label="Average" value={avgScore !== '—' ? `${avgScore}/5` : '—'} color="var(--success)" sub="this week" />
           </div>
         </div>
 
@@ -138,6 +175,27 @@ export default function Dashboard({ store }) {
               })}
             </div>
           </div>
+
+          {/* Weekly review */}
+          {weeklyReview && (
+            <div style={{ background: 'var(--surface)', borderRadius: 16, padding: '18px 20px' }}>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>Weekly review</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {[
+                  { label: 'Avg journal score', value: weeklyReview.avgScore !== null ? `${weeklyReview.avgScore}/5` : '—', color: 'var(--accent)' },
+                  { label: 'Habit completion', value: `${weeklyReview.habitsPct}%`, color: weeklyReview.habitsPct >= 80 ? 'var(--success)' : 'var(--accent)' },
+                  { label: 'Tasks completed', value: weeklyReview.completedTodos, color: 'var(--tcs)' },
+                  { label: 'Best habit', value: weeklyReview.bestHabit?.label ?? '—', color: 'var(--success)' },
+                  { label: 'To improve', value: weeklyReview.worstHabit?.label ?? '—', color: 'var(--danger)' },
+                ].map((row, i, arr) => (
+                  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--surface-2)' : 'none' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{row.label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: row.color, fontFamily: 'JetBrains Mono, monospace' }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Export */}
           <button
@@ -191,8 +249,6 @@ export default function Dashboard({ store }) {
               type="monotone" dataKey="score"
               name="Score" stroke="var(--accent)"
               strokeWidth={2} dot={false} connectNulls={false}
-              // Normalise score/10 → /100 pour même axe
-              data={chartData.map(d => ({ ...d, score: d.score != null ? d.score * 10 : null }))}
             />
             <Line
               type="monotone" dataKey="habits"
@@ -201,9 +257,6 @@ export default function Dashboard({ store }) {
             />
           </LineChart>
         </ResponsiveContainer>
-        <p style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 8, textAlign: 'center' }}>
-          Score affiché sur 100 (×10) pour comparaison
-        </p>
       </div>
     </div>
   )

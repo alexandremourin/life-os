@@ -1,10 +1,22 @@
 import { useState } from 'react'
-import { Plus, Trash2, Check, Archive, ArrowLeft } from 'lucide-react'
+import { Plus, Trash2, Check, Archive, ArrowLeft, Flag, Calendar, AlertCircle } from 'lucide-react'
+
+function formatDeadline(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr + 'T00:00:00')
+  const today = new Date(); today.setHours(0,0,0,0)
+  const diff = Math.round((d - today) / 86400000)
+  if (diff < 0) return { label: `${Math.abs(diff)}d overdue`, overdue: true }
+  if (diff === 0) return { label: 'Today', overdue: false }
+  if (diff === 1) return { label: 'Tomorrow', overdue: false }
+  return { label: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }), overdue: false }
+}
 
 export default function Todo({ store }) {
   const [activeCategory, setActiveCategory] = useState('tcs')
   const [newTask, setNewTask] = useState('')
   const [showArchive, setShowArchive] = useState(false)
+  const [expandedId, setExpandedId] = useState(null)
 
   const handleAdd = () => {
     if (!newTask.trim()) return
@@ -18,6 +30,21 @@ export default function Todo({ store }) {
 
   const activeTodos = store.todos[activeCategory] || []
   const activeColor = store.categories.find((c) => c.id === activeCategory)?.color || '#fff'
+
+  // Sort pending: high priority first, then by deadline, then createdAt
+  const pendingTodos = activeTodos.filter(t => !t.done).map(t => {
+    const meta = store.getTodoMeta(t.id)
+    return { ...t, meta }
+  }).sort((a, b) => {
+    if (a.meta.priority === 'high' && b.meta.priority !== 'high') return -1
+    if (b.meta.priority === 'high' && a.meta.priority !== 'high') return 1
+    if (a.meta.deadline && b.meta.deadline) return a.meta.deadline.localeCompare(b.meta.deadline)
+    if (a.meta.deadline) return -1
+    if (b.meta.deadline) return 1
+    return 0
+  })
+
+  const doneTodos = activeTodos.filter(t => t.done)
 
   const completedByDate = {}
   Object.entries(store.todos).forEach(([catId, tasks]) => {
@@ -147,38 +174,138 @@ export default function Todo({ store }) {
 
       {/* Task list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {activeTodos.filter(t => !t.done).length === 0 && activeTodos.filter(t => t.done).length === 0 && (
+        {pendingTodos.length === 0 && doneTodos.length === 0 && (
           <div style={{ textAlign: 'center', padding: '48px 0', background: 'var(--surface)', borderRadius: 14 }}>
             <p style={{ fontSize: 13, color: 'var(--text-3)' }}>No tasks yet</p>
           </div>
         )}
 
         {/* Pending */}
-        {activeTodos.filter(t => !t.done).map((todo) => (
-          <div key={todo.id}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', borderRadius: 12, background: 'var(--surface)' }}
-            className="todo-row"
-          >
-            <button
-              onClick={() => store.toggleTodo(activeCategory, todo.id)}
-              style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, border: `1.5px solid ${activeColor}50`, background: 'transparent', cursor: 'pointer' }}
-            />
-            <span style={{ flex: 1, fontSize: 14 }}>{todo.text}</span>
-            <button
-              onClick={() => store.deleteTodo(activeCategory, todo.id)}
-              className="delete-btn"
-              style={{ color: 'var(--text-3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, opacity: 0, transition: 'opacity 0.2s' }}
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
+        {pendingTodos.map((todo) => {
+          const isHigh = todo.meta.priority === 'high'
+          const deadlineInfo = formatDeadline(todo.meta.deadline)
+          const isExpanded = expandedId === todo.id
+
+          return (
+            <div key={todo.id} style={{ borderRadius: 12, background: 'var(--surface)', overflow: 'hidden' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px' }}
+                className="todo-row"
+              >
+                {/* Complete */}
+                <button
+                  onClick={() => store.toggleTodo(activeCategory, todo.id)}
+                  style={{
+                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    border: `1.5px solid ${isHigh ? 'var(--danger)' : activeColor + '50'}`,
+                    background: 'transparent', cursor: 'pointer',
+                  }}
+                />
+
+                {/* Text + deadline */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, display: 'block' }}>{todo.text}</span>
+                  {deadlineInfo && (
+                    <span style={{
+                      fontSize: 10, fontFamily: 'JetBrains Mono, monospace',
+                      color: deadlineInfo.overdue ? 'var(--danger)' : 'var(--text-3)',
+                      display: 'flex', alignItems: 'center', gap: 3, marginTop: 2,
+                    }}>
+                      {deadlineInfo.overdue && <AlertCircle size={9} />}
+                      {deadlineInfo.label}
+                    </span>
+                  )}
+                </div>
+
+                {/* Priority flag */}
+                <button
+                  onClick={() => store.setTodoPriority(todo.id, isHigh ? 'normal' : 'high')}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+                    color: isHigh ? 'var(--danger)' : 'var(--text-3)',
+                    opacity: isHigh ? 1 : 0,
+                    transition: 'all 0.2s',
+                  }}
+                  className="delete-btn"
+                  onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+                  onMouseLeave={e => { if (!isHigh) e.currentTarget.style.opacity = '0' }}
+                >
+                  <Flag size={13} fill={isHigh ? 'var(--danger)' : 'none'} />
+                </button>
+
+                {/* Calendar toggle */}
+                <button
+                  onClick={() => setExpandedId(isExpanded ? null : todo.id)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+                    color: todo.meta.deadline ? 'var(--accent)' : 'var(--text-3)',
+                    opacity: todo.meta.deadline ? 1 : 0,
+                    transition: 'all 0.2s',
+                  }}
+                  className="delete-btn"
+                  onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+                  onMouseLeave={e => { if (!todo.meta.deadline) e.currentTarget.style.opacity = '0' }}
+                >
+                  <Calendar size={13} />
+                </button>
+
+                {/* Delete */}
+                <button
+                  onClick={() => store.deleteTodo(activeCategory, todo.id)}
+                  className="delete-btn"
+                  style={{ color: 'var(--text-3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, opacity: 0, transition: 'opacity 0.2s' }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+
+              {/* Expanded: priority + deadline controls */}
+              {isExpanded && (
+                <div style={{ padding: '0 14px 13px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }} className="fade-in">
+                  <button
+                    onClick={() => store.setTodoPriority(todo.id, isHigh ? 'normal' : 'high')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
+                      borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500,
+                      background: isHigh ? 'var(--danger-dim)' : 'var(--surface-2)',
+                      color: isHigh ? 'var(--danger)' : 'var(--text-3)',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <Flag size={11} fill={isHigh ? 'var(--danger)' : 'none'} />
+                    {isHigh ? 'High priority' : 'Set priority'}
+                  </button>
+
+                  <input
+                    type="date"
+                    value={todo.meta.deadline || ''}
+                    onChange={(e) => store.setTodoDeadline(todo.id, e.target.value || null)}
+                    style={{
+                      padding: '5px 10px', borderRadius: 7, border: 'none',
+                      background: 'var(--surface-2)', color: todo.meta.deadline ? 'var(--text)' : 'var(--text-3)',
+                      fontSize: 11, fontFamily: 'JetBrains Mono, monospace', outline: 'none', cursor: 'pointer',
+                    }}
+                  />
+
+                  {todo.meta.deadline && (
+                    <button
+                      onClick={() => store.setTodoDeadline(todo.id, null)}
+                      style={{ padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11, background: 'var(--surface-2)', color: 'var(--text-3)' }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
 
         {/* Done today */}
-        {activeTodos.filter(t => t.done).length > 0 && (
+        {doneTodos.length > 0 && (
           <div style={{ marginTop: 12 }}>
             <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Done</p>
-            {activeTodos.filter(t => t.done).slice(0, 3).map((todo) => (
+            {doneTodos.slice(0, 3).map((todo) => (
               <div key={todo.id}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, background: 'var(--surface)', opacity: 0.4, marginBottom: 4 }}
               >
