@@ -39,7 +39,7 @@ export default function App() {
       {/* Main content */}
       <main
         className="md-main"
-        style={{ flex: 1, padding: '20px 16px 88px', maxWidth: 900, width: '100%', margin: '0 auto', overflowY: 'auto' }}
+        style={{ flex: 1, padding: '20px 16px 104px', maxWidth: 900, width: '100%', margin: '0 auto', overflowY: 'auto' }}
       >
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -56,11 +56,11 @@ export default function App() {
       <nav style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         display: 'flex', justifyContent: 'space-around', alignItems: 'center',
-        height: 60,
-        background: 'rgba(10,10,10,0.92)',
+        paddingTop: 10,
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)',
+        background: 'rgba(255,255,255,0.92)',
         backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
-        borderTop: '1px solid var(--surface-2)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        borderTop: '1px solid var(--border)',
         zIndex: 100,
       }}>
         {navItems.map(({ to, icon: Icon, label }) => (

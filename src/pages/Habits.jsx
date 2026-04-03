@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Lock, History, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
+import { Check, Lock, History, ArrowLeft, ChevronDown, ChevronUp, Plus, X, Trash2 } from 'lucide-react'
 
 // Vue historique
 function HistoryView({ store, onBack }) {
@@ -72,13 +72,22 @@ function HistoryView({ store, onBack }) {
               {isExpanded && (
                 <div style={{ padding: '0 16px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   {day.habits.map((h) => (
-                    <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      key={h.id}
+                      onClick={(e) => { e.stopPropagation(); store.toggleHabitForDate(day.date, h.id) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', textAlign: 'left',
+                      }}
+                    >
                       <div style={{
                         width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
                         background: h.done ? 'var(--success)' : 'var(--surface-2)',
+                        border: h.done ? 'none' : '1.5px solid var(--border)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.2s',
                       }}>
-                        {h.done && <Check size={9} color="#0a0a0a" strokeWidth={3} />}
+                        {h.done && <Check size={9} color="#ffffff" strokeWidth={3} />}
                       </div>
                       <span style={{
                         fontSize: 12,
@@ -87,7 +96,7 @@ function HistoryView({ store, onBack }) {
                       }}>
                         {h.label}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -102,6 +111,17 @@ function HistoryView({ store, onBack }) {
 // Vue principale
 export default function Habits({ store }) {
   const [showHistory, setShowHistory] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newLabel, setNewLabel] = useState('')
+  const [newTarget, setNewTarget] = useState('')
+
+  const handleAddHabit = () => {
+    if (!newLabel.trim()) return
+    store.addCustomHabit(newLabel.trim(), newTarget.trim() || 'daily')
+    setNewLabel('')
+    setNewTarget('')
+    setShowAddForm(false)
+  }
 
   if (showHistory) return <HistoryView store={store} onBack={() => setShowHistory(false)} />
 
@@ -118,7 +138,7 @@ export default function Habits({ store }) {
           <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
             {new Date().toLocaleDateString('en', { weekday: 'long', month: 'short', day: 'numeric' })}
           </p>
-          <h1 style={{ fontSize: 26, fontWeight: 600 }}>Habits</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 600 }}>Daily Habits</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {isValidated && (
@@ -168,7 +188,7 @@ export default function Habits({ store }) {
                 border: checked ? 'none' : '1.5px solid var(--surface-3)',
                 transition: 'all 0.2s',
               }}>
-                {checked && <Check size={13} color="#0a0a0a" strokeWidth={3} />}
+                {checked && <Check size={13} color="#ffffff" strokeWidth={3} />}
               </div>
 
               {/* Label */}
@@ -201,6 +221,16 @@ export default function Habits({ store }) {
               }}>
                 {habit.target}
               </span>
+
+              {/* Remove custom habit */}
+              {habit.custom && !isValidated && (
+                <button
+                  onClick={e => { e.stopPropagation(); store.removeCustomHabit(habit.id) }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-3)', opacity: 0.4, flexShrink: 0 }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
             </button>
           )
         })}
@@ -210,14 +240,70 @@ export default function Habits({ store }) {
       {store.smokeStreak > 0 && (
         <div style={{
           borderRadius: 12, padding: '13px 18px',
-          background: 'var(--danger-dim)',
+          background: 'var(--success-dim)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--danger)' }}>Smoke-free streak</span>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 16, fontWeight: 600, color: 'var(--danger)' }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--success)' }}>Smoke-free streak</span>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 16, fontWeight: 600, color: 'var(--success)' }}>
             {store.smokeStreak}d
           </span>
         </div>
+      )}
+
+      {/* Add habit form */}
+      {showAddForm ? (
+        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }} className="fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>New habit</span>
+            <button onClick={() => { setShowAddForm(false); setNewLabel(''); setNewTarget('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2 }}>
+              <X size={14} />
+            </button>
+          </div>
+          <input
+            type="text"
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddHabit()}
+            placeholder="Habit name..."
+            style={{ padding: '10px 14px', fontSize: 14, fontFamily: 'Inter, sans-serif' }}
+            autoFocus
+          />
+          <input
+            type="text"
+            value={newTarget}
+            onChange={e => setNewTarget(e.target.value)}
+            placeholder="Target (e.g. 30 min, daily...)"
+            style={{ padding: '10px 14px', fontSize: 13, fontFamily: 'Inter, sans-serif' }}
+          />
+          <button
+            onClick={handleAddHabit}
+            disabled={!newLabel.trim()}
+            style={{
+              padding: '11px 0', borderRadius: 10, border: 'none', cursor: newLabel.trim() ? 'pointer' : 'not-allowed',
+              background: newLabel.trim() ? 'var(--accent)' : 'var(--surface-2)',
+              color: newLabel.trim() ? '#ffffff' : 'var(--text-3)',
+              fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
+            }}
+          >
+            Add habit
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAddForm(true)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            padding: '10px 0', borderRadius: 10, border: '1px dashed var(--border)',
+            background: 'transparent', cursor: 'pointer',
+            fontSize: 12, color: 'var(--text-3)', fontWeight: 500,
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)' }}
+        >
+          <Plus size={13} />
+          Add habit
+        </button>
       )}
 
       {/* Actions */}
@@ -231,7 +317,7 @@ export default function Habits({ store }) {
               flex: 1, padding: '13px 0', borderRadius: 12, border: 'none',
               cursor: doneCount === 0 ? 'not-allowed' : 'pointer',
               background: doneCount === 0 ? 'var(--surface)' : 'var(--accent)',
-              color: doneCount === 0 ? 'var(--text-3)' : '#0a0a0a',
+              color: doneCount === 0 ? 'var(--text-3)' : '#ffffff',
               fontSize: 13, fontWeight: 600,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               transition: 'all 0.2s',

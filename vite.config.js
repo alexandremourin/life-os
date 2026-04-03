@@ -10,11 +10,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'LIFE OS',
-        short_name: 'LIFE OS',
+        name: 'ACE',
+        short_name: 'ACE',
         description: 'Personal performance tracker',
-        theme_color: '#0a0a0a',
-        background_color: '#0a0a0a',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
         icons: [

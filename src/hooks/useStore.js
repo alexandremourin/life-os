@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx'
 
 const getToday = () => new Date().toISOString().split('T')[0]
 
-const DEFAULT_HABITS = [
+const BUILTIN_HABITS = [
   { id: 'sleep', label: 'Sleep', target: '7h min' },
   { id: 'sport', label: 'Sport', target: '1h min' },
   { id: 'lunch', label: 'Lunch', target: 'healthy' },
@@ -18,10 +18,10 @@ const DEFAULT_HABITS = [
 ]
 
 const TODO_CATEGORIES = [
-  { id: 'tcs', label: 'TCS', color: '#6366f1' },
   { id: 'projects', label: 'Personal Projects', color: '#f59e0b' },
-  { id: 'ace', label: 'ACE', color: '#10b981' },
   { id: 'personal', label: 'Personal', color: '#ec4899' },
+  { id: 'tcs', label: 'TCS', color: '#6366f1' },
+  { id: 'ace', label: 'ACE', color: '#10b981' },
 ]
 
 const LEVELS = [
@@ -50,6 +50,15 @@ export function useStore() {
   })
   const [notes, setNotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem('life-os-notes') || '[]') } catch { return [] }
+  })
+  const [journalFocus, setJournalFocus] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('life-os-journal-focus') || '{}') } catch { return {} }
+  })
+  const [habitsConfig, setHabitsConfig] = useState(() => {
+    try {
+      const stored = localStorage.getItem('life-os-habits-config')
+      return stored ? JSON.parse(stored) : BUILTIN_HABITS
+    } catch { return BUILTIN_HABITS }
   })
 
   // ── LOAD DATA ──
@@ -114,11 +123,33 @@ export function useStore() {
     }
   }, [habitsData, today, smokeStreak])
 
+  const toggleHabitForDate = useCallback(async (date, habitId) => {
+    const dayData = habitsData[date] || {}
+    const newVal = !dayData[habitId]
+    setHabitsData((prev) => ({ ...prev, [date]: { ...prev[date], [habitId]: newVal } }))
+    await supabase.from('habits_log').upsert({ date, habit_id: habitId, completed: newVal }, { onConflict: 'date,habit_id' })
+  }, [habitsData])
+
+  const addCustomHabit = useCallback((label, target) => {
+    const newHabit = { id: `custom_${Date.now()}`, label, target: target || 'done' }
+    const updated = [...habitsConfig, newHabit]
+    setHabitsConfig(updated)
+    localStorage.setItem('life-os-habits-config', JSON.stringify(updated))
+  }, [habitsConfig])
+
+  const removeCustomHabit = useCallback((id) => {
+    if (BUILTIN_HABITS.find(h => h.id === id)) return
+    const updated = habitsConfig.filter(h => h.id !== id)
+    setHabitsConfig(updated)
+    localStorage.setItem('life-os-habits-config', JSON.stringify(updated))
+  }, [habitsConfig])
+
   const getTodayHabits = () => habitsData[today] || {}
-  const getCompletionRate = () => {
+
+  const getCompletionRate = useCallback(() => {
     const done = Object.values(habitsData[today] || {}).filter(Boolean).length
-    return Math.round((done / DEFAULT_HABITS.length) * 100)
-  }
+    return Math.round((done / habitsConfig.length) * 100)
+  }, [habitsData, today, habitsConfig])
 
   const getHabitStreak = useCallback((habitId) => {
     let streak = 0
@@ -141,14 +172,14 @@ export function useStore() {
       result.push({
         date: key, isToday: key === today,
         label: d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }),
-        habits: DEFAULT_HABITS.map(h => ({ ...h, done: !!dayData[h.id] })),
-        completed: DEFAULT_HABITS.filter(h => dayData[h.id]).length,
-        total: DEFAULT_HABITS.length,
+        habits: habitsConfig.map(h => ({ ...h, done: !!dayData[h.id] })),
+        completed: habitsConfig.filter(h => dayData[h.id]).length,
+        total: habitsConfig.length,
         validated: !!validatedDays[key],
       })
     }
     return result
-  }, [habitsData, today, validatedDays])
+  }, [habitsData, today, validatedDays, habitsConfig])
 
   // ── GAMIFICATION XP ──
   const getTotalXP = useCallback(() => {
@@ -156,10 +187,10 @@ export function useStore() {
     Object.entries(habitsData).forEach(([, dayData]) => {
       const done = Object.values(dayData).filter(Boolean).length
       xp += done * 10
-      if (done === DEFAULT_HABITS.length) xp += 50
+      if (done === habitsConfig.length) xp += 50
     })
     return xp
-  }, [habitsData])
+  }, [habitsData, habitsConfig])
 
   const getLevelInfo = useCallback(() => {
     const xp = getTotalXP()
@@ -175,7 +206,15 @@ export function useStore() {
     const { data } = await supabase.from('todos').insert({ category, text, done: false, created_at: today }).select().single()
     if (data) {
       setTodos((prev) => ({ ...prev, [category]: prev[category].map((t) => t.id === tempId ? { ...t, id: data.id } : t) }))
+      setTodoMeta((prev) => {
+        if (!prev[tempId]) return prev
+        const updated = { ...prev, [data.id]: prev[tempId] }
+        delete updated[tempId]
+        localStorage.setItem('life-os-todo-meta', JSON.stringify(updated))
+        return updated
+      })
     }
+    return tempId
   }, [today])
 
   const toggleTodo = useCallback(async (category, todoId) => {
@@ -188,7 +227,6 @@ export function useStore() {
 
   const deleteTodo = useCallback(async (category, todoId) => {
     setTodos((prev) => ({ ...prev, [category]: prev[category].filter(t => t.id !== todoId) }))
-    // Clean up meta
     const newMeta = { ...todoMeta }
     delete newMeta[todoId]
     setTodoMeta(newMeta)
@@ -208,15 +246,31 @@ export function useStore() {
     localStorage.setItem('life-os-todo-meta', JSON.stringify(updated))
   }, [todoMeta])
 
+  const setTodoDescription = useCallback((todoId, description) => {
+    const updated = { ...todoMeta, [todoId]: { ...todoMeta[todoId], description } }
+    setTodoMeta(updated)
+    localStorage.setItem('life-os-todo-meta', JSON.stringify(updated))
+  }, [todoMeta])
+
   const getTodoMeta = useCallback((todoId) => todoMeta[todoId] || {}, [todoMeta])
 
   // ── NOTES ──
-  const addNote = useCallback((text) => {
-    const newNote = { id: Date.now().toString(), text, createdAt: today, pinned: false }
+  const addNote = useCallback((noteData) => {
+    const newNote = {
+      id: Date.now().toString(),
+      title: noteData.title || '',
+      text: noteData.text || '',
+      category: noteData.category || 'idea',
+      stage: noteData.stage || 'raw',
+      priority: noteData.priority || 'normal',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      pinned: false,
+    }
     const updated = [newNote, ...notes]
     setNotes(updated)
     localStorage.setItem('life-os-notes', JSON.stringify(updated))
-  }, [notes, today])
+  }, [notes])
 
   const deleteNote = useCallback((id) => {
     const updated = notes.filter(n => n.id !== id)
@@ -224,8 +278,8 @@ export function useStore() {
     localStorage.setItem('life-os-notes', JSON.stringify(updated))
   }, [notes])
 
-  const updateNote = useCallback((id, text) => {
-    const updated = notes.map(n => n.id === id ? { ...n, text } : n)
+  const updateNote = useCallback((id, fields) => {
+    const updated = notes.map(n => n.id === id ? { ...n, ...fields, updatedAt: new Date().toISOString() } : n)
     setNotes(updated)
     localStorage.setItem('life-os-notes', JSON.stringify(updated))
   }, [notes])
@@ -235,6 +289,17 @@ export function useStore() {
     setJournal((prev) => ({ ...prev, [today]: { score, positive, negative } }))
     await supabase.from('journal').upsert({ date: today, score, positive, negative }, { onConflict: 'date' })
   }, [today])
+
+  const saveJournalForDate = useCallback(async (date, score, positive, negative) => {
+    setJournal((prev) => ({ ...prev, [date]: { score, positive, negative } }))
+    await supabase.from('journal').upsert({ date, score, positive, negative }, { onConflict: 'date' })
+  }, [])
+
+  const saveJournalFocus = useCallback((date, text) => {
+    const updated = { ...journalFocus, [date]: text }
+    setJournalFocus(updated)
+    localStorage.setItem('life-os-journal-focus', JSON.stringify(updated))
+  }, [journalFocus])
 
   const getTodayJournal = () => journal[today] || { score: 3, positive: '', negative: '' }
 
@@ -249,8 +314,8 @@ export function useStore() {
         date: key,
         shortDate: d.toLocaleDateString('en', { weekday: 'short' }),
         journal: journal[key] || null,
-        habitsCompleted: Object.values(habitsForDay).filter(Boolean).length,
-        habitsTotal: DEFAULT_HABITS.length,
+        habitsCompleted: habitsConfig.filter(h => habitsForDay[h.id]).length,
+        habitsTotal: habitsConfig.length,
       })
     }
     return days
@@ -263,7 +328,7 @@ export function useStore() {
       d.setDate(d.getDate() - i)
       const key = d.toISOString().split('T')[0]
       const habitsForDay = habitsData[key] || {}
-      const habitsCompleted = Object.values(habitsForDay).filter(Boolean).length
+      const habitsCompleted = habitsConfig.filter(h => habitsForDay[h.id]).length
       result.push({
         date: key,
         label: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
@@ -272,12 +337,12 @@ export function useStore() {
         journal: journal[key] || null,
         score: journal[key]?.score ?? null,
         habitsCompleted,
-        habitsPct: Math.round((habitsCompleted / DEFAULT_HABITS.length) * 100),
-        habitsTotal: DEFAULT_HABITS.length,
+        habitsPct: Math.round((habitsCompleted / habitsConfig.length) * 100),
+        habitsTotal: habitsConfig.length,
       })
     }
     return result
-  }, [habitsData, journal, today])
+  }, [habitsData, journal, today, habitsConfig])
 
   const getAllJournalEntries = useCallback(() => {
     return Object.entries(journal)
@@ -305,14 +370,14 @@ export function useStore() {
     const avgScore = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null
 
     const habitCounts = {}
-    DEFAULT_HABITS.forEach(h => { habitCounts[h.id] = 0 })
-    days.forEach(d => DEFAULT_HABITS.forEach(h => { if (d.dayData[h.id]) habitCounts[h.id]++ }))
+    habitsConfig.forEach(h => { habitCounts[h.id] = 0 })
+    days.forEach(d => habitsConfig.forEach(h => { if (d.dayData[h.id]) habitCounts[h.id]++ }))
 
-    const bestHabit = DEFAULT_HABITS.reduce((a, h) => habitCounts[h.id] > habitCounts[a.id] ? h : a, DEFAULT_HABITS[0])
-    const worstHabit = DEFAULT_HABITS.reduce((a, h) => habitCounts[h.id] < habitCounts[a.id] ? h : a, DEFAULT_HABITS[0])
+    const bestHabit = habitsConfig.reduce((a, h) => habitCounts[h.id] > habitCounts[a.id] ? h : a, habitsConfig[0])
+    const worstHabit = habitsConfig.reduce((a, h) => habitCounts[h.id] < habitCounts[a.id] ? h : a, habitsConfig[0])
 
     const totalHabitsDone = days.reduce((acc, d) => acc + Object.values(d.dayData).filter(Boolean).length, 0)
-    const habitsPct = Math.round((totalHabitsDone / (7 * DEFAULT_HABITS.length)) * 100)
+    const habitsPct = Math.round((totalHabitsDone / (7 * habitsConfig.length)) * 100)
 
     const completedTodos = Object.values(todos)
       .flat()
@@ -320,7 +385,7 @@ export function useStore() {
       .length
 
     return { avgScore, habitsPct, bestHabit, worstHabit, completedTodos, daysLogged: scores.length }
-  }, [habitsData, journal, todos])
+  }, [habitsData, journal, todos, habitsConfig])
 
   // ── ANALYTICS ──
   const getHeatmapData = useCallback((days = 91) => {
@@ -330,17 +395,17 @@ export function useStore() {
       d.setDate(d.getDate() - i)
       const key = d.toISOString().split('T')[0]
       const dayData = habitsData[key] || {}
-      const completed = Object.values(dayData).filter(Boolean).length
+      const completed = habitsConfig.filter(h => dayData[h.id]).length
       result.push({
         date: key,
         dayOfWeek: d.getDay(),
         label: d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' }),
         completed,
-        pct: Math.round((completed / DEFAULT_HABITS.length) * 100),
+        pct: Math.round((completed / habitsConfig.length) * 100),
       })
     }
     return result
-  }, [habitsData])
+  }, [habitsData, habitsConfig])
 
   const getAnalyticsStats = useCallback(() => {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -356,7 +421,7 @@ export function useStore() {
     const bestDay = byDay.reduce((a, b, i) => (b.days && b.total / b.days > (a.days ? byDay[a.i].total / byDay[a.i].days : 0)) ? { i } : a, { i: 0 })
     const worstDay = byDay.reduce((a, b, i) => (b.days && b.total / b.days < (a.days ? byDay[a.i].total / byDay[a.i].days : 999)) ? { i } : a, { i: 0 })
 
-    const habitCompletionRate = DEFAULT_HABITS.map(h => {
+    const habitCompletionRate = habitsConfig.map(h => {
       const total = Object.values(habitsData).length
       const done = Object.values(habitsData).filter(d => d[h.id]).length
       return { ...h, rate: total ? Math.round((done / total) * 100) : 0 }
@@ -382,7 +447,19 @@ export function useStore() {
       habitRanking: habitCompletionRate,
       byMonth,
     }
-  }, [habitsData, journal])
+  }, [habitsData, journal, habitsConfig])
+
+  const getSmokeStats = useCallback(() => {
+    const allDates = Object.keys(habitsData).sort()
+    const smokeFree = allDates.filter(d => habitsData[d]?.smoke === true).length
+    const smoked = allDates.filter(d => Object.keys(habitsData[d] || {}).length > 0 && habitsData[d]?.smoke === false).length
+    let bestStreak = 0, currentRun = 0
+    for (const date of allDates) {
+      if (habitsData[date]?.smoke === true) { currentRun++; bestStreak = Math.max(bestStreak, currentRun) }
+      else if (habitsData[date] && Object.keys(habitsData[date]).length > 0) currentRun = 0
+    }
+    return { smokeFree, smoked, bestStreak, currentStreak: smokeStreak }
+  }, [habitsData, smokeStreak])
 
   const getPendingTodos = () => Object.values(todos).reduce((acc, cat) => acc + cat.filter(t => !t.done).length, 0)
 
@@ -391,7 +468,7 @@ export function useStore() {
     const wb = XLSX.utils.book_new()
     const habitsRows = Object.keys(habitsData).sort().map((date) => {
       const row = { Date: date }
-      DEFAULT_HABITS.forEach(h => { row[h.label] = habitsData[date]?.[h.id] ? 'Yes' : 'No' })
+      habitsConfig.forEach(h => { row[h.label] = habitsData[date]?.[h.id] ? 'Yes' : 'No' })
       return row
     })
     if (habitsRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(habitsRows), 'Habits')
@@ -407,24 +484,26 @@ export function useStore() {
     const journalRows = Object.entries(journal).sort(([a], [b]) => a.localeCompare(b))
       .map(([date, e]) => ({ Date: date, Score: e.score, Positive: e.positive || '', Negative: e.negative || '' }))
     if (journalRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(journalRows), 'Journal')
-    XLSX.writeFile(wb, `life-os-export-${today}.xlsx`)
-  }, [habitsData, todos, journal, todoMeta, today])
+    XLSX.writeFile(wb, `ace-export-${today}.xlsx`)
+  }, [habitsData, todos, journal, todoMeta, today, habitsConfig])
 
   return {
     today, loading,
-    habits: DEFAULT_HABITS, categories: TODO_CATEGORIES,
-    habitsData, todos, journal, smokeStreak, notes,
-    toggleHabit, getTodayHabits, getCompletionRate,
+    habits: habitsConfig, categories: TODO_CATEGORIES,
+    habitsData, todos, journal, smokeStreak, notes, journalFocus,
+    toggleHabit, toggleHabitForDate, getTodayHabits, getCompletionRate,
     validateDay, isDayValidated,
     getHabitStreak, getHabitsHistory,
+    addCustomHabit, removeCustomHabit,
     getTotalXP, getLevelInfo,
     addTodo, toggleTodo, deleteTodo,
-    setTodoPriority, setTodoDeadline, getTodoMeta,
+    setTodoPriority, setTodoDeadline, setTodoDescription, getTodoMeta,
     addNote, deleteNote, updateNote,
-    saveJournal, getTodayJournal, getJournalHistory,
+    saveJournal, saveJournalForDate, saveJournalFocus,
+    getTodayJournal, getJournalHistory,
     getFullHistory, getAllJournalEntries,
     getWeeklyReview,
-    getHeatmapData, getAnalyticsStats,
+    getHeatmapData, getAnalyticsStats, getSmokeStats,
     getPendingTodos, exportToExcel,
   }
 }

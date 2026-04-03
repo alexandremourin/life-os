@@ -1,4 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="20" fill="#0a0a0a"/>
-  <text x="50" y="58" text-anchor="middle" dominant-baseline="central" fill="#d4a44a" font-family="system-ui" font-weight="700" font-size="40">L</text>
+  <rect width="100" height="100" fill="#ffffff"/>
+  <line x1="50" y1="14" x2="18" y2="86" stroke="#d4a44a" stroke-width="7" stroke-linecap="round"/>
+  <line x1="50" y1="14" x2="82" y2="86" stroke="#d4a44a" stroke-width="7" stroke-linecap="round"/>
+  <line x1="30" y1="56" x2="70" y2="56" stroke="#d4a44a" stroke-width="6" stroke-linecap="round"/>
 </svg>

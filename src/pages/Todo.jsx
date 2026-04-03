@@ -13,19 +13,24 @@ function formatDeadline(dateStr) {
 }
 
 export default function Todo({ store }) {
-  const [activeCategory, setActiveCategory] = useState('tcs')
+  const [activeCategory, setActiveCategory] = useState('projects')
+  const [showAddPanel, setShowAddPanel] = useState(false)
   const [newTask, setNewTask] = useState('')
+  const [newDesc, setNewDesc] = useState('')
   const [showArchive, setShowArchive] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newTask.trim()) return
-    store.addTodo(activeCategory, newTask.trim())
+    const id = await store.addTodo(activeCategory, newTask.trim())
+    if (newDesc.trim() && id) store.setTodoDescription(id, newDesc.trim())
     setNewTask('')
+    setNewDesc('')
+    setShowAddPanel(false)
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleAdd()
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAdd() }
   }
 
   const activeTodos = store.todos[activeCategory] || []
@@ -111,7 +116,7 @@ export default function Todo({ store }) {
       {/* Header */}
       <div>
         <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Tasks</p>
-        <h1 style={{ fontSize: 26, fontWeight: 600 }}>To-do</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 600 }}>Tasks</h1>
       </div>
 
       {/* Category tabs */}
@@ -143,34 +148,63 @@ export default function Todo({ store }) {
         })}
       </div>
 
-      {/* Add task */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          type="text"
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Add a task..."
-          style={{
-            flex: 1, padding: '12px 16px', borderRadius: 10, border: 'none',
-            background: 'var(--surface)', color: 'var(--text)',
-            fontSize: 14, fontFamily: 'DM Sans, sans-serif', outline: 'none',
-          }}
-          onFocus={(e) => e.target.style.background = 'var(--surface-2)'}
-          onBlur={(e) => e.target.style.background = 'var(--surface)'}
-        />
+      {/* Add task panel */}
+      {showAddPanel ? (
+        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 16, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }} className="fade-in">
+          <input
+            type="text"
+            value={newTask}
+            onChange={e => setNewTask(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Task title..."
+            style={{ padding: '11px 14px', fontSize: 14, fontFamily: 'Inter, sans-serif' }}
+            autoFocus
+          />
+          <textarea
+            rows={2}
+            value={newDesc}
+            onChange={e => setNewDesc(e.target.value)}
+            placeholder="Description (optional)..."
+            style={{ fontSize: 13 }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => { setShowAddPanel(false); setNewTask(''); setNewDesc('') }}
+              style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', background: 'transparent', color: 'var(--text-3)', fontSize: 13, fontWeight: 500 }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAdd}
+              disabled={!newTask.trim()}
+              style={{
+                flex: 2, padding: '10px 0', borderRadius: 10, border: 'none', cursor: newTask.trim() ? 'pointer' : 'not-allowed',
+                background: newTask.trim() ? activeColor : 'var(--surface-2)',
+                color: newTask.trim() ? '#ffffff' : 'var(--text-3)',
+                fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
+              }}
+            >
+              Add task
+            </button>
+          </div>
+        </div>
+      ) : (
         <button
-          onClick={handleAdd}
+          onClick={() => setShowAddPanel(true)}
           style={{
-            width: 44, height: 44, borderRadius: 10, border: 'none', cursor: 'pointer',
-            background: activeColor, color: '#0a0a0a',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, transition: 'opacity 0.2s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '12px 0', borderRadius: 12, border: '1px dashed var(--border)',
+            background: 'transparent', cursor: 'pointer',
+            fontSize: 13, color: 'var(--text-3)', fontWeight: 500,
+            transition: 'all 0.2s',
           }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = activeColor; e.currentTarget.style.color = activeColor }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)' }}
         >
-          <Plus size={18} strokeWidth={2.5} />
+          <Plus size={15} />
+          Add task
         </button>
-      </div>
+      )}
 
       {/* Task list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -223,12 +257,9 @@ export default function Todo({ store }) {
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer', padding: 4,
                     color: isHigh ? 'var(--danger)' : 'var(--text-3)',
-                    opacity: isHigh ? 1 : 0,
+                    opacity: isHigh ? 1 : 0.4,
                     transition: 'all 0.2s',
                   }}
-                  className="delete-btn"
-                  onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
-                  onMouseLeave={e => { if (!isHigh) e.currentTarget.style.opacity = '0' }}
                 >
                   <Flag size={13} fill={isHigh ? 'var(--danger)' : 'none'} />
                 </button>
@@ -239,12 +270,9 @@ export default function Todo({ store }) {
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer', padding: 4,
                     color: todo.meta.deadline ? 'var(--accent)' : 'var(--text-3)',
-                    opacity: todo.meta.deadline ? 1 : 0,
+                    opacity: todo.meta.deadline ? 1 : 0.4,
                     transition: 'all 0.2s',
                   }}
-                  className="delete-btn"
-                  onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
-                  onMouseLeave={e => { if (!todo.meta.deadline) e.currentTarget.style.opacity = '0' }}
                 >
                   <Calendar size={13} />
                 </button>
@@ -252,8 +280,7 @@ export default function Todo({ store }) {
                 {/* Delete */}
                 <button
                   onClick={() => store.deleteTodo(activeCategory, todo.id)}
-                  className="delete-btn"
-                  style={{ color: 'var(--text-3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, opacity: 0, transition: 'opacity 0.2s' }}
+                  style={{ color: 'var(--text-3)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, opacity: 0.4, transition: 'opacity 0.2s' }}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -261,40 +288,39 @@ export default function Todo({ store }) {
 
               {/* Expanded: priority + deadline controls */}
               {isExpanded && (
-                <div style={{ padding: '0 14px 13px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }} className="fade-in">
-                  <button
-                    onClick={() => store.setTodoPriority(todo.id, isHigh ? 'normal' : 'high')}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
-                      borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500,
-                      background: isHigh ? 'var(--danger-dim)' : 'var(--surface-2)',
-                      color: isHigh ? 'var(--danger)' : 'var(--text-3)',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <Flag size={11} fill={isHigh ? 'var(--danger)' : 'none'} />
-                    {isHigh ? 'High priority' : 'Set priority'}
-                  </button>
-
-                  <input
-                    type="date"
-                    value={todo.meta.deadline || ''}
-                    onChange={(e) => store.setTodoDeadline(todo.id, e.target.value || null)}
-                    style={{
-                      padding: '5px 10px', borderRadius: 7, border: 'none',
-                      background: 'var(--surface-2)', color: todo.meta.deadline ? 'var(--text)' : 'var(--text-3)',
-                      fontSize: 11, fontFamily: 'JetBrains Mono, monospace', outline: 'none', cursor: 'pointer',
-                    }}
+                <div style={{ padding: '0 14px 13px', display: 'flex', flexDirection: 'column', gap: 10 }} className="fade-in">
+                  <textarea
+                    rows={2}
+                    value={todo.meta.description || ''}
+                    onChange={e => store.setTodoDescription(todo.id, e.target.value)}
+                    placeholder="Add a description..."
+                    style={{ fontSize: 13, resize: 'none' }}
                   />
-
-                  {todo.meta.deadline && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
-                      onClick={() => store.setTodoDeadline(todo.id, null)}
-                      style={{ padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11, background: 'var(--surface-2)', color: 'var(--text-3)' }}
+                      onClick={() => store.setTodoPriority(todo.id, isHigh ? 'normal' : 'high')}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
+                        borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500,
+                        background: isHigh ? 'var(--danger-dim)' : 'var(--surface-2)',
+                        color: isHigh ? 'var(--danger)' : 'var(--text-3)', transition: 'all 0.2s',
+                      }}
                     >
-                      Clear
+                      <Flag size={11} fill={isHigh ? 'var(--danger)' : 'none'} />
+                      {isHigh ? 'High priority' : 'Set priority'}
                     </button>
-                  )}
+                    <input
+                      type="date"
+                      value={todo.meta.deadline || ''}
+                      onChange={(e) => store.setTodoDeadline(todo.id, e.target.value || null)}
+                      style={{ padding: '5px 10px', borderRadius: 7, fontSize: 11, fontFamily: 'JetBrains Mono, monospace', cursor: 'pointer' }}
+                    />
+                    {todo.meta.deadline && (
+                      <button onClick={() => store.setTodoDeadline(todo.id, null)} style={{ padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11, background: 'var(--surface-2)', color: 'var(--text-3)' }}>
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

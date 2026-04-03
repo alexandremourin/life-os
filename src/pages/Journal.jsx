@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Save, ChevronDown, ChevronUp, Search, X } from 'lucide-react'
+import { Save, ChevronDown, ChevronUp, Search, X, Edit3 } from 'lucide-react'
 
 export default function Journal({ store }) {
   const todayJournal = store.getTodayJournal()
   const [score, setScore] = useState(todayJournal.score)
   const [positive, setPositive] = useState(todayJournal.positive)
   const [negative, setNegative] = useState(todayJournal.negative)
+  const [focus, setFocus] = useState(store.journalFocus?.[store.today] || '')
   const [saved, setSaved] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [editingEntry, setEditingEntry] = useState(null)
 
   const allEntries = store.getAllJournalEntries()
   const pastEntries = allEntries.filter(e => e.date !== store.today)
@@ -24,15 +26,16 @@ export default function Journal({ store }) {
     setScore(j.score)
     setPositive(j.positive)
     setNegative(j.negative)
+    setFocus(store.journalFocus?.[store.today] || '')
   }, [store.today])
 
   const handleSave = () => {
     store.saveJournal(score, positive, negative)
+    if (focus.trim()) store.saveJournalFocus(store.today, focus.trim())
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
-  // Score /5 : normalise les anciennes valeurs /10
   const normalizeScore = (s) => s > 5 ? Math.round(s / 2) : s
 
   const getScoreColor = (s) => {
@@ -44,17 +47,35 @@ export default function Journal({ store }) {
 
   const displayScore = normalizeScore(score)
 
+  // Edit past entry
+  if (editingEntry) {
+    return (
+      <EditPastEntry
+        entry={editingEntry}
+        focus={store.journalFocus?.[editingEntry.date] || ''}
+        onSave={(date, s, p, n, f) => {
+          store.saveJournalForDate(date, s, p, n)
+          if (f.trim()) store.saveJournalFocus(date, f.trim())
+          setEditingEntry(null)
+        }}
+        onClose={() => setEditingEntry(null)}
+        getScoreColor={getScoreColor}
+        normalizeScore={normalizeScore}
+      />
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
         <p style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
           {new Date().toLocaleDateString('en', { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
-        <h1 style={{ fontSize: 26, fontWeight: 600 }}>Journal</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 600 }}>Daily Log</h1>
       </div>
 
-      {/* Score /5 */}
-      <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 22 }}>
+      {/* Score */}
+      <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 22, border: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <span style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rate your day</span>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 30, fontWeight: 700, color: getScoreColor(score) }}>
@@ -84,18 +105,28 @@ export default function Journal({ store }) {
         <textarea rows={3} value={negative} onChange={(e) => setNegative(e.target.value)} placeholder="What could have been better..." />
       </div>
 
+      {/* Tomorrow's focus */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Tomorrow's focus
+        </label>
+        <textarea rows={2} value={focus} onChange={(e) => setFocus(e.target.value)} placeholder="One thing to focus on tomorrow..." />
+      </div>
+
       <button onClick={handleSave} style={{
         width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
         background: saved ? 'var(--success)' : 'var(--accent)',
-        color: '#0a0a0a', fontSize: 13, fontWeight: 600,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.3s',
+        color: '#ffffff',
+        fontSize: 13, fontWeight: 600,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        transition: 'background 0.3s',
       }}>
         <Save size={15} />
         {saved ? 'Saved' : 'Save entry'}
       </button>
 
-      {/* Historique complet */}
-      <div style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden' }}>
+      {/* History */}
+      <div style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)' }}>
         <button onClick={() => setHistoryOpen(!historyOpen)} style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '15px 18px', background: 'transparent', border: 'none', cursor: 'pointer',
@@ -113,11 +144,10 @@ export default function Journal({ store }) {
 
         {historyOpen && (
           <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 8 }} className="fade-in">
-            {/* Search */}
             <div style={{ position: 'relative' }}>
               <Search size={12} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-                style={{ width: '100%', padding: '9px 30px 9px 30px', borderRadius: 8, border: 'none', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
+                style={{ width: '100%', padding: '9px 30px', borderRadius: 8, fontSize: 13, fontFamily: 'Inter, sans-serif' }} />
               {search && (
                 <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
                   <X size={12} />
@@ -133,20 +163,82 @@ export default function Journal({ store }) {
 
             {filteredEntries.map((entry) => {
               const s = normalizeScore(entry.score)
+              const entryFocus = store.journalFocus?.[entry.date]
               return (
                 <div key={entry.date} style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '12px 14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: entry.positive || entry.negative ? 8 : 0 }}>
                     <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-3)' }}>{entry.shortLabel}</span>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: getScoreColor(entry.score) }}>{s}/5</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: getScoreColor(entry.score) }}>{s}/5</span>
+                      <button onClick={() => setEditingEntry(entry)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text-3)' }}>
+                        <Edit3 size={12} />
+                      </button>
+                    </div>
                   </div>
-                  {entry.positive && <p style={{ fontSize: 12, marginBottom: entry.negative ? 4 : 0 }}><span style={{ color: 'var(--success)', marginRight: 5 }}>+</span><span style={{ color: 'var(--text-2)' }}>{entry.positive}</span></p>}
-                  {entry.negative && <p style={{ fontSize: 12 }}><span style={{ color: 'var(--danger)', marginRight: 5 }}>−</span><span style={{ color: 'var(--text-2)' }}>{entry.negative}</span></p>}
+                  {entry.positive && <p style={{ fontSize: 12, marginBottom: entry.negative || entryFocus ? 4 : 0 }}><span style={{ color: 'var(--success)', marginRight: 5 }}>+</span><span style={{ color: 'var(--text-2)' }}>{entry.positive}</span></p>}
+                  {entry.negative && <p style={{ fontSize: 12, marginBottom: entryFocus ? 4 : 0 }}><span style={{ color: 'var(--danger)', marginRight: 5 }}>−</span><span style={{ color: 'var(--text-2)' }}>{entry.negative}</span></p>}
+                  {entryFocus && <p style={{ fontSize: 12 }}><span style={{ color: 'var(--accent)', marginRight: 5 }}>→</span><span style={{ color: 'var(--text-2)' }}>{entryFocus}</span></p>}
                 </div>
               )
             })}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function EditPastEntry({ entry, focus: initialFocus, onSave, onClose, getScoreColor, normalizeScore }) {
+  const [score, setScore] = useState(normalizeScore(entry.score))
+  const [positive, setPositive] = useState(entry.positive || '')
+  const [negative, setNegative] = useState(entry.negative || '')
+  const [focus, setFocus] = useState(initialFocus)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }} className="fade-in">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+          <X size={16} style={{ color: 'var(--text-2)' }} />
+        </button>
+        <div>
+          <h1 style={{ fontSize: 18, fontWeight: 600 }}>Edit entry</h1>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{entry.label}</p>
+        </div>
+      </div>
+
+      <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 22, border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Day score</span>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 28, fontWeight: 700, color: getScoreColor(score) }}>
+            {score}<span style={{ fontSize: 16, color: 'var(--text-3)' }}>/5</span>
+          </span>
+        </div>
+        <input type="range" min="1" max="5" value={score} onChange={e => setScore(parseInt(e.target.value))} />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>What went well</label>
+        <textarea rows={3} value={positive} onChange={e => setPositive(e.target.value)} placeholder="Best moment of the day..." />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>What to improve</label>
+        <textarea rows={3} value={negative} onChange={e => setNegative(e.target.value)} placeholder="What could have been better..." />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Focus</label>
+        <textarea rows={2} value={focus} onChange={e => setFocus(e.target.value)} placeholder="Focus or intention..." />
+      </div>
+
+      <button onClick={() => onSave(entry.date, score, positive, negative, focus)} style={{
+        width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
+        background: 'var(--accent)', color: 'var(--text)', fontSize: 13, fontWeight: 600,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+      }}>
+        <Save size={15} />
+        Save changes
+      </button>
     </div>
   )
 }
